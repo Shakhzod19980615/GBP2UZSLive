@@ -89,6 +89,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
                 SendMessage response = new SendMessage(chatId.toString(), sb.toString().trim());
                 response.setParseMode("Markdown");
+                response.disableWebPagePreview();
                 execute(response);
 
             } catch (NumberFormatException e) {
