@@ -1,6 +1,7 @@
 package dasturlash.uz;
 
 import dasturlash.uz.dto.RateDto;
+import dasturlash.uz.service.RateService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,29 +14,34 @@ import java.util.stream.Collectors;
 @Component
 public class PollingScheduler {
 
-    private final RateAggregator aggregator;
+    //private final RateAggregator aggregator;
     private final TelegramPublisher publisher;
+    private final RateService rateService;
 
     private final Map<Integer, String> lastMessageIds = new HashMap<>();
-    private final Map<Integer, Map<String, BigDecimal>> lastRates = new HashMap<>();
 
     // Use all hours for testing
     private final List<Integer> postHours = List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
             13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23);
 
-    public PollingScheduler(RateAggregator aggregator, TelegramPublisher publisher) {
-        this.aggregator = aggregator;
+    public PollingScheduler(TelegramPublisher publisher, RateService rateService) {
         this.publisher = publisher;
+        this.rateService = rateService;
     }
 
-    @Scheduled(cron = "0 * * * * *")
+    //@Scheduled(cron = "0 0/15 * * * *")
+        @Scheduled(cron = "0 0/3 * * * *")
+
     public void pollAndPublish() {
         int currentHour = LocalDateTime.now().getHour();
         System.out.println("===== Polling at hour: " + currentHour + " =====");
+        rateService.saveAllProviders();
 
-        var rates = aggregator.collectRates();
-        if (rates == null || rates.isEmpty()) {
-            System.out.println("No rates collected. Skipping.");
+
+        List<RateDto> latestRates = new ArrayList<>(rateService.getLatestOnePoundRates());
+
+        if (latestRates.isEmpty()) {
+            System.out.println("No latestRates collected. Skipping.");
             return;
         }
 
@@ -44,25 +50,15 @@ public class PollingScheduler {
         if (postHours.contains(currentHour)) {
             if (messageId == null) {
                 // First time this hour → publish new
-                messageId = publisher.publishNew(rates);
+                messageId = publisher.publishNew(latestRates);
                 lastMessageIds.put(currentHour, messageId);
-
-                // Save rates for comparison
-                Map<String, BigDecimal> ratesMap = rates.stream()
-                        .collect(Collectors.toMap(RateDto::provider, RateDto::rate));
-                lastRates.put(currentHour, ratesMap);
 
                 System.out.println("Published new message for hour " + currentHour + ", messageId=" + messageId);
             } else {
                 // Already posted this hour → update with differences
-                Map<String, BigDecimal> prevRates = lastRates.get(currentHour);
-                if (prevRates != null) {
-                    publisher.updateMessage(messageId, rates, prevRates);
-
-                    // Update stored rates after editing
-                    Map<String, BigDecimal> ratesMap = rates.stream()
-                            .collect(Collectors.toMap(RateDto::provider, RateDto::rate));
-                    lastRates.put(currentHour, ratesMap);
+                Map<String, BigDecimal> previousRate = rateService.getPreviousRate();
+                if (previousRate != null) {
+                    publisher.updateMessage(messageId, latestRates, previousRate);
 
                     System.out.println("Updated message for hour " + currentHour + ", messageId=" + messageId);
                 }
@@ -80,9 +76,9 @@ public class PollingScheduler {
                 Map<String, BigDecimal> prevRates = lastRates.get(lastHour);
 
                 if (messageId != null && prevRates != null) {
-                    publisher.updateMessage(messageId, rates, prevRates);
+                    publisher.updateMessage(messageId, latestRates, prevRates);
 
-                    Map<String, BigDecimal> ratesMap = rates.stream()
+                    Map<String, BigDecimal> ratesMap = latestRates.stream()
                             .collect(Collectors.toMap(RateDto::provider, RateDto::rate));
                     lastRates.put(lastHour, ratesMap);
 

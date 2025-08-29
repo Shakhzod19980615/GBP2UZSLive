@@ -1,0 +1,19 @@
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/
+    username: postgres
+    password: AA9537878
+
+  jpa:
+    show-sql: true
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true

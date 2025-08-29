@@ -11,6 +11,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Service("paysendScraper")
@@ -23,7 +26,7 @@ public class PaysendScraper implements Scraper {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public Optional<RateDto> scrape() {
+    public List<RateDto> scrape() {
         try {
             String payload = """
                 {
@@ -47,7 +50,7 @@ public class PaysendScraper implements Scraper {
 
             if (response.statusCode() != 200) {
                 System.err.println("Paysend scrape failed: HTTP " + response.statusCode());
-                return Optional.empty();
+                return Collections.emptyList();
             }
 
             JsonNode root = mapper.readTree(response.body());
@@ -55,24 +58,34 @@ public class PaysendScraper implements Scraper {
 
             if (commissionNode.isMissingNode()) {
                 System.err.println("Paysend scrape failed: commission section missing");
-                return Optional.empty();
+                return Collections.emptyList();
             }
 
             BigDecimal rate = commissionNode.path("convertRate").decimalValue();
 
             if (rate.compareTo(BigDecimal.ZERO) <= 0) {
                 System.err.println("Paysend scrape failed: invalid rate");
-                return Optional.empty();
+                return Collections.emptyList();
             }
 
-            // Create a human-readable format like "1 GBP = 16620.0970 UZS"
-            String rateText = String.format("1 GBP = %s UZS", rate);
 
-            return Optional.of(new RateDto("Paysend", rate, Instant.now(), rateText));
+            RateDto dto = new RateDto(
+                    "Paysend",
+                    BigDecimal.ONE, // always 1 GBP
+                    rate,
+                    LocalDateTime.now(),
+                    String.format("1 GBP = %s UZS", rate)
+            );
+            return List.of(dto);
 
         } catch (Exception e) {
             System.err.println("Paysend scrape failed: " + e.getMessage());
-            return Optional.empty();
+            return Collections.emptyList();
         }
+    }
+
+    @Override
+    public String getProviderName() {
+        return "Paysend";
     }
 }

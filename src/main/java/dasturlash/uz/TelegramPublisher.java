@@ -33,7 +33,7 @@ public class TelegramPublisher {
     public String publishNew(List<RateDto> rates) {
         String text = formatRatesWithFee(rates, null);
         SendMessage msg = new SendMessage(channelId, text);
-        msg.setParseMode("Markdown");
+        msg.setParseMode("HTML");
         msg.disableWebPagePreview();
 
         try {
@@ -50,7 +50,7 @@ public class TelegramPublisher {
         edit.setChatId(channelId);
         edit.setMessageId(Integer.parseInt(messageId));
         edit.setText(formatRatesWithFee(rates, prevRates));
-        edit.setParseMode("Markdown");
+        edit.setParseMode("HTML");
         edit.disableWebPagePreview();
 
         try {
@@ -64,73 +64,51 @@ public class TelegramPublisher {
        symbols.setGroupingSeparator(',');
        DecimalFormat formatter = new DecimalFormat("#,##0.00", symbols);
 
-       StringBuilder sb = new StringBuilder("```\n"); // mono format
-       sb.append("💱 GBP → UZS Live Rates\n\n");
+       StringBuilder sb = new StringBuilder();
+       sb.append("<b>💱 GBP → UZS Live Rates</b>\n\n");
+       sb.append("<pre>");
 
-       // Sort rates descending
+       // sort rates descending
        rates.sort((r1, r2) -> r2.rate().compareTo(r1.rate()));
-
-       // Calculate max lengths
-       int maxProviderLen = rates.stream()
-               .mapToInt(r -> r.provider().length()).max().orElse(1);
-       int maxRateLen = rates.stream()
-               .mapToInt(r -> formatter.format(r.rate()).length()).max().orElse(1);
-       int maxDeltaLen = rates.stream().mapToInt(r -> {
-           if (prevRates != null) {
-               BigDecimal delta =
-                       r.rate().subtract(prevRates.getOrDefault(r.provider(), r.rate()));
-               if (delta.compareTo(BigDecimal.ZERO) > 0)
-                   return String.format("(🟢 +%s)", formatter.format(delta)).length();
-               else if (delta.compareTo(BigDecimal.ZERO) < 0)
-                   return String.format("(🔴 -%s)", formatter.format(delta.abs())).length();
-           }
-           return 0;
-       }).max().orElse(0);
-       int maxFeeLen = rates.stream().mapToInt(r ->
-               getFeeForProvider(r.provider()).length()).max().orElse(1);
-
-       // Ensure widths are at least 1 to avoid %-0s
-       maxProviderLen = Math.max(1, maxProviderLen);
-       maxRateLen = Math.max(1, maxRateLen);
-       maxDeltaLen = Math.max(1, maxDeltaLen);
-       maxFeeLen = Math.max(1, maxFeeLen);
 
        for (RateDto r : rates) {
            String provider = r.provider();
            BigDecimal currentRate = r.rate();
-           String feeStr = String.format("Fee: £%s", getFeeForProvider(provider));
+           BigDecimal prevRate = prevRates != null
+                   ? prevRates.getOrDefault(provider, currentRate)
+                   : currentRate;
 
+           BigDecimal delta = currentRate.subtract(prevRate);
            String deltaStr = "";
-           if (prevRates != null) {
-               BigDecimal prevRate = prevRates.getOrDefault(provider, currentRate);
-               BigDecimal delta = currentRate.subtract(prevRate);
-               if (delta.compareTo(BigDecimal.ZERO) > 0) deltaStr
-                       = String.format("(🟢 +%s UZS)", formatter.format(delta));
-               else if (delta.compareTo(BigDecimal.ZERO) < 0) deltaStr
-                       = String.format("(🔴 -%s UZS)", formatter.format(delta.abs()));
+           if (delta.compareTo(BigDecimal.ZERO) > 0) {
+               deltaStr = "(🟢 +" + formatter.format(delta) + " UZS)";
+           } else if (delta.compareTo(BigDecimal.ZERO) < 0) {
+               deltaStr = "(🔴 -" + formatter.format(delta.abs()) + " UZS)";
            }
 
-           sb.append(String.format(
-                   "• %-"+maxProviderLen+"s %"+maxRateLen+"s UZS %-"
-                           +maxDeltaLen+"s | %-"+maxFeeLen+"s\n",
-                   provider,
-                   formatter.format(currentRate),
-                   deltaStr,
-                   feeStr
-           ));
+           sb.append("• ")
+                   .append(provider)
+                   .append(" ")
+                   .append(formatter.format(currentRate))
+                   .append(" UZS ")
+                   .append(deltaStr)
+                   .append(" | Fee: £")
+                   .append(getFeeForProvider(provider))
+                   .append("\n");
        }
+
+       sb.append("</pre>\n");
 
        String formattedTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                .withZone(ZoneId.systemDefault())
                .format(Instant.now());
-       sb.append("\nUpdated: ").append(formattedTime).append("\n");
-       sb.append("```"); // end mono
-       // Add links section
-       sb.append("\n\nLinks: ")
-               .append("[TransferGo](https://transfergo.com) | ")
-               .append("[Moneff](https://qrco.de/bfsv7o) | ")
-               .append("[Profee](https://profee.com) | ")
-               .append("[Paysend](https://paysend.com)");
+       sb.append("\nUpdated: ").append(formattedTime).append("\n\n");
+
+       sb.append("Links: ")
+               .append("<a href=\"https://transfergo.com\">TransferGo</a> | ")
+               .append("<a href=\"https://qrco.de/bfsv7o\">Moneff</a> | ")
+               .append("<a href=\"https://profee.com\">Profee</a> | ")
+               .append("<a href=\"https://paysend.com\">Paysend</a>");
 
        return sb.toString();
    }

@@ -2,9 +2,6 @@ package dasturlash.uz.bot;
 
 import dasturlash.uz.dto.RateDto;
 import dasturlash.uz.scrapers.MoneffScraper;
-import dasturlash.uz.scrapers.PaysendScraper;
-import dasturlash.uz.scrapers.ProfeeScraper;
-import dasturlash.uz.scrapers.TransferGoScraper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -20,18 +17,15 @@ import java.util.*;
 public class MyTelegramBot extends TelegramLongPollingBot {
     @Value("${telegram.bot.username}") private String botUsername;
     @Value("${telegram.bot.token}") private String botToken;
-    private final ProfeeScraper profeeScraper;
+   // private final ProfeeScraper profeeScraper;
     private final MoneffScraper moneffScraper;
-    private final TransferGoScraper transferGoScraper;
-    private final PaysendScraper paysendScraper;
+   // private final TransferGoScraper transferGoScraper;
+   // private final PaysendScraper paysendScraper;
     //private final XeScraper xeScraper;
 
-    public MyTelegramBot(ProfeeScraper profeeScraper, MoneffScraper moneffScraper,
-                         TransferGoScraper transferGoScraper, PaysendScraper paysendScraper) {
-        this.profeeScraper = profeeScraper;
+    public MyTelegramBot( MoneffScraper moneffScraper) {
+
         this.moneffScraper = moneffScraper;
-        this.transferGoScraper = transferGoScraper;
-        this.paysendScraper = paysendScraper;
     }
 
     private static class RateInfo {
@@ -55,22 +49,22 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             try {
                 BigDecimal amountGBP = new BigDecimal(msg.trim());
 
-                Optional<RateDto> rateOptProfee = profeeScraper.scrape();
-                Optional<RateDto> rateOptTransferGo = transferGoScraper.scrape();
-                Optional<RateDto> rateOptMoneff = moneffScraper.scrape();
-                Optional<RateDto> rateOptPaysend = paysendScraper.scrape();
+                //Optional<RateDto> rateOptProfee = profeeScraper.scrape();
+                //Optional<RateDto> rateOptTransferGo = transferGoScraper.scrape();
+                List<RateDto> rateOptMoneff = moneffScraper.scrape();
+                //Optional<RateDto> rateOptPaysend = paysendScraper.scrape();
                 //Optional<RateDto> rateOptXe = xeScraper.scrape();
 
-                if (rateOptProfee.isEmpty() || rateOptMoneff.isEmpty() || rateOptTransferGo.isEmpty()) {
-                    execute(new SendMessage(chatId.toString(), "Sorry, could not fetch rates now."));
-                    return;
-                }
+//                if (rateOptProfee.isEmpty() || rateOptMoneff.isEmpty() || rateOptTransferGo.isEmpty()) {
+//                    execute(new SendMessage(chatId.toString(), "Sorry, could not fetch rates now."));
+//                    return;
+//                }
 
                 List<RateInfo> ratesList = new ArrayList<>();
-                ratesList.add(new RateInfo("Profee", rateOptProfee.get().rate(), amountGBP.multiply(rateOptProfee.get().rate())));
-                ratesList.add(new RateInfo("Moneff", rateOptMoneff.get().rate(), amountGBP.multiply(rateOptMoneff.get().rate())));
-                ratesList.add(new RateInfo("TransferGo", rateOptTransferGo.get().rate(), amountGBP.multiply(rateOptTransferGo.get().rate())));
-                ratesList.add(new RateInfo("PaySend", rateOptPaysend.get().rate(), amountGBP.multiply(rateOptPaysend.get().rate())));
+                //ratesList.add(new RateInfo("Profee", rateOptProfee.get().rate(), amountGBP.multiply(rateOptProfee.get().rate())));
+                ratesList.add(new RateInfo("Moneff", rateOptMoneff.get(1).rate(), amountGBP.multiply(rateOptMoneff.get(1).rate())));
+                //ratesList.add(new RateInfo("TransferGo", rateOptTransferGo.get().rate(), amountGBP.multiply(rateOptTransferGo.get().rate())));
+                //ratesList.add(new RateInfo("PaySend", rateOptPaysend.get().rate(), amountGBP.multiply(rateOptPaysend.get().rate())));
                 //ratesList.add(new RateInfo("Xe", rateOptXe.get().rate(), amountGBP.multiply(rateOptXe.get().rate())));
 
                 // Sort by highest rate first
